@@ -89,19 +89,39 @@ module ActiveScaffold
         # to allow access cancan must allow both :crud_type and :action
         # if cancan says "no", it delegates to default AS behavior
         def authorized_for_with_cancan?(options = {})
+#          c = self.send('caller', 2)
+#          logger.error "LGV-Authz"
+#          logger.error "    #{c.first}"
+#          logger.error "    #{self.class.name} (#{self.id if self.respond_to?('id')}, #{self.name if self.respond_to?('name')}) ? #{options}"
           raise InvalidArgument if options[:crud_type].blank? and options[:action].blank?
           if current_ability.present?
-            crud_type_result = options[:crud_type].nil? ? true : current_ability.can?(options[:crud_type], self)
+            if options[:crud_type].nil?
+              crud_type_result = true
+            else
+              if options.has_key?(:column)
+                begin
+                  column_class = options[:column].to_s.camelize.constantize
+                  column_auth = column_class.authorized_for?(:crud_type => options[:crud_type], :action => options[:action])
+                rescue NameError
+                  column_auth = true
+                end
+              else
+                column_auth = true
+              end
+              crud_type_result = current_ability.can?(options[:crud_type], self) && column_auth
+#              logger.error "    Crud auth = #{crud_type_result} (#{current_ability.can?(options[:crud_type], self)}, #{column_auth})"
+            end
             action_result = options[:action].nil? ? true : current_ability.can?(options[:action].to_sym, self)
           else
             crud_type_result, action_result = false, false
           end
           default_result = authorized_for_without_cancan?(options)
           result = (crud_type_result && action_result) || default_result
+#          logger.error "    --> #{result} (#{(crud_type_result && action_result)}, #{default_result})"
           return result
         end
       end
     end
-
+    
   end
 end

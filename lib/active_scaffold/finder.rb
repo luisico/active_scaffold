@@ -250,13 +250,14 @@ module ActiveScaffold
     # * :page
     # TODO: this should reside on the model, not the controller
     def find_page(options = {})
-      options.assert_valid_keys :sorting, :per_page, :page, :count_includes, :pagination
+      options.assert_valid_keys :sorting, :per_page, :page, :count_includes, :pagination, :distinct
 
       search_conditions = all_conditions
       full_includes = (active_scaffold_includes.blank? ? nil : active_scaffold_includes)
       options[:per_page] ||= 999999999
       options[:page] ||= 1
       options[:count_includes] ||= full_includes unless search_conditions.nil?
+      options[:distinct] ||= false
 
       klass = beginning_of_chain
       
@@ -264,14 +265,22 @@ module ActiveScaffold
       finder_options = { :order => options[:sorting].try(:clause),
                          :where => search_conditions,
                          :joins => joins_for_finder,
-                         :includes => options[:count_includes]}
+                         :includes => options[:count_includes],
+                         :select => options[:distinct] ? 'DISTINCT "runs".*' : ''
+      }
                          
       finder_options.merge! custom_finder_options
 
       # NOTE: we must use :include in the count query, because some conditions may reference other tables
       count_query = append_to_query(klass, finder_options.reject{|k, v| [:select, :order].include?(k)})
-      count = count_query.count unless options[:pagination] == :infinite
-  
+      unless options[:pagination] == :infinite
+        if options[:distinct]
+          count = count_query.count('id', :distinct => true)
+        else
+          count = count_query.count
+        end
+      end
+
       # Converts count to an integer if ActiveRecord returned an OrderedHash
       # that happens when finder_options contains a :group key
       count = count.length if count.is_a? ActiveSupport::OrderedHash

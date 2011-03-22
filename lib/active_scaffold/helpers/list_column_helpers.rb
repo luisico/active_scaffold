@@ -33,10 +33,22 @@ module ActiveScaffold
       def render_list_column(text, column, record)
         if column.link
           link = column.link
+          ##### LGV FIXED: record.send does authorized each column record individualy
           associated = record.send(column.association.name) if column.association
+          if associated.nil? || (associated.respond_to?(:empty?) && associated.empty?)
+            # nothing to do
+          elsif [:has_many, :has_and_belongs_to_many].include? column.association.macro
+            associated.each do |assoc|
+              associated.delete(assoc) unless assoc.authorized_for?(:crud_type => :read)
+            end
+          else
+            associated = nil unless associated.authorized_for?(:crud_type => :read)
+          end
+          
           url_options = params_for(:action => nil, :id => record.id, :link => text)
 
           # setup automatic link
+          # LGV : TODO fix here as well
           if column.autolink? && column.singular_association? # link to inline form
             link = action_link_to_inline_form(column, record, associated)
             return text if link.crud_type.nil?
