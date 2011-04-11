@@ -266,20 +266,14 @@ module ActiveScaffold
                          :where => search_conditions,
                          :joins => joins_for_finder,
                          :includes => options[:count_includes],
-                         :select => options[:distinct] ? 'DISTINCT "runs".*' : ''
       }
+      finder_options.merge!(:group => "\"#{klass.table.name}\".id") if options[:distinct]
                          
       finder_options.merge! custom_finder_options
 
       # NOTE: we must use :include in the count query, because some conditions may reference other tables
       count_query = append_to_query(klass, finder_options.reject{|k, v| [:select, :order].include?(k)})
-      unless options[:pagination] == :infinite
-        if options[:distinct]
-          count = count_query.count('id', :distinct => true)
-        else
-          count = count_query.count
-        end
-      end
+      count = count_query.count unless options[:pagination] == :infinite
 
       # Converts count to an integer if ActiveRecord returned an OrderedHash
       # that happens when finder_options contains a :group key

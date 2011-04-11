@@ -92,7 +92,7 @@ module ActiveScaffold
 #          c = self.send('caller', 2)
 #          logger.error "LGV-Authz"
 #          logger.error "    #{c.first}"
-#          logger.error "    #{self.class.name} (#{self.id if self.respond_to?('id')}, #{self.name if self.respond_to?('name')}) ? #{options}"
+#          logger.error "    #{self.class.name} (#{self.id if self.respond_to?('id')}) ? #{options}"
           raise InvalidArgument if options[:crud_type].blank? and options[:action].blank?
           if current_ability.present?
             if options[:crud_type].nil?

@@ -19,7 +19,7 @@ module ActiveScaffold
           else
             format_column_value(record, column)
           end
-
+          
           value = '&nbsp;'.html_safe if value.nil? or (value.respond_to?(:empty?) and value.empty?) # fix for IE 6
           return value
         rescue Exception => e
@@ -33,22 +33,10 @@ module ActiveScaffold
       def render_list_column(text, column, record)
         if column.link
           link = column.link
-          ##### LGV FIXED: record.send does authorized each column record individualy
           associated = record.send(column.association.name) if column.association
-          if associated.nil? || (associated.respond_to?(:empty?) && associated.empty?)
-            # nothing to do
-          elsif [:has_many, :has_and_belongs_to_many].include? column.association.macro
-            associated.each do |assoc|
-              associated.delete(assoc) unless assoc.authorized_for?(:crud_type => :read)
-            end
-          else
-            associated = nil unless associated.authorized_for?(:crud_type => :read)
-          end
-          
           url_options = params_for(:action => nil, :id => record.id, :link => text)
 
           # setup automatic link
-          # LGV : TODO fix here as well
           if column.autolink? && column.singular_association? # link to inline form
             link = action_link_to_inline_form(column, record, associated)
             return text if link.crud_type.nil?
@@ -170,6 +158,17 @@ module ActiveScaffold
       ##
       def format_column_value(record, column, value = nil)
         value ||= record.send(column.name) unless record.nil?
+        ##### LGV FIXED: record.send does do authz
+        if column.link
+          if value.nil? || (value.respond_to?(:empty?) && value.empty?)
+            # nothing to do
+          elsif [:has_many, :has_and_belongs_to_many].include? column.association.macro
+            value.reject! { |val| !val.authorized_for?(:crud_type => :read)}
+          else
+            value = nil unless value.authorized_for?(:crud_type => :read)
+          end
+        end
+
         if value && column.association # cache association size before calling column_empty?
           associated_size = value.size if column.plural_association? and column.associated_number? # get count before cache association
           cache_association(value, column)
