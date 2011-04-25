@@ -89,10 +89,12 @@ module ActiveScaffold
         # to allow access cancan must allow both :crud_type and :action
         # if cancan says "no", it delegates to default AS behavior
         def authorized_for_with_cancan?(options = {})
-#          c = self.send('caller', 2)
-#          logger.error "LGV-Authz"
-#          logger.error "    #{c.first}"
-#          logger.error "    #{self.class.name} (#{self.id if self.respond_to?('id')}) ? #{options}"
+          log = false
+          if log
+            c = self.send('caller', 2)
+            logger.error "\e[31;1mLGV-Authz\e[0m    #{c.first}"
+            logger.error "    \e[31;1m#{self.class.name} (#{self.id if self.respond_to?('id')}) ? #{options}\e[0m"
+          end
           raise InvalidArgument if options[:crud_type].blank? and options[:action].blank?
           if current_ability.present?
             if options[:crud_type].nil?
@@ -109,7 +111,7 @@ module ActiveScaffold
                 column_auth = true
               end
               crud_type_result = current_ability.can?(options[:crud_type], self) && column_auth
-#              logger.error "    Crud auth = #{crud_type_result} (#{current_ability.can?(options[:crud_type], self)}, #{column_auth})"
+              logger.error "    Crud auth = #{crud_type_result} (#{current_ability.can?(options[:crud_type], self)}, #{column_auth})" if log
             end
             action_result = options[:action].nil? ? true : current_ability.can?(options[:action].to_sym, self)
           else
@@ -117,7 +119,7 @@ module ActiveScaffold
           end
           default_result = authorized_for_without_cancan?(options)
           result = (crud_type_result && action_result) || default_result
-#          logger.error "    --> #{result} (#{(crud_type_result && action_result)}, #{default_result})"
+          logger.error "    --> #{result} (#{(crud_type_result && action_result)}, #{default_result})" if log
           return result
         end
       end
