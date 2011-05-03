@@ -239,10 +239,18 @@ document.observe("dom:loaded", function() {
   document.on('change', 'input.update_form, select.update_form', function(event) {
     var element = event.findElement();
     var as_form = element.up('form.as_form');
-    
+    var params = null;
+
+    if (element.hasAttribute('data-update_send_form')) {
+        params = as_form.serialize(true);
+    } else {
+        params = {value: element.getValue()};
+    }
+    params.source_id = element.readAttribute('id');
+
     new Ajax.Request(element.readAttribute('data-update_url'), {
       method: 'get',
-      parameters: {value: element.getValue(), source_id: element.readAttribute('id')},
+      parameters: params,
       onLoading: function(response) {
         element.next('img.loading-indicator').style.visibility = 'visible';
         as_form.disable();
@@ -280,10 +288,27 @@ document.observe("dom:loaded", function() {
     return true;
   });
   document.on("click", "a[data-popup]", function(event, element) {
-     if (event.stopped) return;
-     window.open($(element).href);
-     event.stop();
-   });
+    if (event.stopped) return;
+    window.open($(element).href);
+    event.stop();
+  });
+  document.on("click", ".hover_click", function(event, element) {
+    var ul_element = element.down('ul');
+    if (ul_element.getStyle('display') === 'none') {
+      ul_element.style.display = 'block';
+    } else {
+      ul_element.style.display = 'none';
+    }
+     
+    return true;
+  });
+  document.on("click", ".hover_click a.as_action", function(event, element) {
+    var element = element.up('.hover_click').down('ul');
+    if (element) {
+      element.style.display = 'none';
+    }
+    return true;
+  });
 });
 
 

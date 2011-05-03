@@ -148,7 +148,7 @@ module ActiveScaffold
       def action_link_url_options(link, url_options, record, options = {})
         url_options = url_options.clone
         url_options[:action] = link.action
-        url_options[:controller] = link.controller if link.controller
+        url_options[:controller] = link.controller.to_s if link.controller
         url_options.delete(:search) if link.controller and link.controller.to_s != params[:controller]
         url_options.merge! link.parameters if link.parameters
         @link_record = record
@@ -190,10 +190,11 @@ module ActiveScaffold
         id = url_options[:id] || url_options[:parent_id]
         id = "#{column.association.name}-#{record.id}" if column && column.plural_association?
         if record.try(column.association.name.to_sym).present?
-          id = "#{column.association.name}-#{record.send(column.association.name).id}"
+          id = "#{column.association.name}-#{record.send(column.association.name).id}-#{record.id}"
         else
           id = "#{column.association.name}-#{record.id}" unless record.nil?
         end if column && column.singular_association?
+        id = "#{id}-#{url_options[:batch_scope].downcase}" if url_options[:batch_scope]
         action_id = "#{id_from_controller(url_options[:controller]) + '-' if url_options[:parent_controller]}#{url_options[:action].to_s}"
         action_link_id(action_id, id)
       end
@@ -227,10 +228,15 @@ module ActiveScaffold
       def url_options_for_sti_link(column, record, link, url_options, options = {})
         #need to find out controller of current record type
         #and set parameters
-        sti_controller_path = controller_path_for_activerecord(record.class)
-        if sti_controller_path
-          url_options[:controller] = sti_controller_path
-          url_options[:parent_sti] = controller_path
+        # its quite difficult to detect an sti link
+        # if link.column.nil? we are sure that it is nt an singular association inline autolink
+        # howver that will not work if a sti parent is an singular association inline autolink
+        if link.column.nil?
+          sti_controller_path = controller_path_for_activerecord(record.class)
+          if sti_controller_path
+            url_options[:controller] = sti_controller_path
+            url_options[:parent_sti] = controller_path
+          end
         end
       end
 
@@ -255,6 +261,12 @@ module ActiveScaffold
         classes << "#{column.name}-column_heading"
         classes << "sorted #{sorting.direction_of(column).downcase}" if sorting.sorts_on? column
         classes << column.css_class unless column.css_class.nil? || column.css_class.is_a?(Proc)
+        classes.join(' ')
+      end
+
+      def as_main_div_class
+        classes = ["active-scaffold", "active-scaffold-#{controller_id}", "#{params[:controller]}-view", "#{active_scaffold_config.theme}-theme"]
+        classes << "as_touch" if touch_device?
         classes.join(' ')
       end
 

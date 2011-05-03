@@ -122,9 +122,13 @@ module ActiveScaffold
         
       end
 
+      def active_scaffold_search_range_string?(column)
+        (column.column && column.column.text?) || column.search_ui == :string
+      end
+
       def active_scaffold_search_range_comparator_options(column)
         select_options = ActiveScaffold::Finder::NumericComparators.collect {|comp| [as_(comp.downcase.to_sym), comp]}
-        if column.column && column.column.text?
+        if active_scaffold_search_range_string?(column)
           select_options.unshift *ActiveScaffold::Finder::StringComparators.collect {|title, comp| [as_(title), comp]}
         end
         select_options
@@ -132,10 +136,16 @@ module ActiveScaffold
 
       def active_scaffold_search_range(column, options)
         opt_value, from_value, to_value = field_search_params_range_values(column)
-        
-        select_options = active_scaffold_search_range_comparator_options(column)
-        text_field_size = ((column.column && column.column.text?) ? 15 : 10)
 
+        select_options = active_scaffold_search_range_comparator_options(column)
+        if active_scaffold_search_range_string?(column)
+          text_field_size = 15
+          opt_value ||= '%?%'
+        else
+          text_field_size = 10
+          opt_value ||= '='
+        end
+        
         from_value = controller.class.condition_value_for_numeric(column, from_value)
         to_value = controller.class.condition_value_for_numeric(column, to_value)
         from_value = format_number_value(from_value, column.options) if from_value.is_a?(Numeric)
