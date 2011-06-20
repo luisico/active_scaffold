@@ -80,10 +80,46 @@ module ActiveScaffold::Actions
         end
       end
     end
-    
+
+    def deep_nested(my_model, parents={}, result)
+      return result if parents.empty?
+      
+      (my_parent_target, my_parent_id) = parents.shift
+      my_parent_scaffold = "#{my_parent_target.to_s.camelize}Controller".constantize
+      my_parent_model = my_parent_scaffold.active_scaffold_config.model
+
+      my_association = my_model.reflect_on_association(my_parent_target.to_sym) || my_model.reflect_on_association(my_parent_target.singularize.to_sym)
+
+      unless my_association.nil?
+        my_assoc_id = my_parent_id
+        
+        if my_association.macro == :belongs_to
+          my_assoc_key = my_association.primary_key_name
+          result = result.where(my_assoc_key => my_assoc_id)
+        else
+          my_assoc_model = my_association.options[:through]
+          my_assoc_key = my_association.source_reflection.primary_key_name
+          result = result.joins(my_assoc_model).where(my_assoc_model => {my_assoc_key => my_assoc_id })
+        end     
+        logger.info result.to_sql
+      end
+      
+      result = deep_nested(my_model, parents, result)
+    end
+
     def beginning_of_chain
       if nested? && nested.association && nested.association.collection?
-        nested.parent_scope.send(nested.association.name)
+        if params[:eid]
+          result = nested.parent_scope.send(nested.association.name)
+
+          constraints = Hash[*(params[:eid].split(/_(\d+)_/)[0...-3])]
+          nested.constrained_fields = (nested.constrained_fields << constraints.keys.map {|k| k.to_sym}).flatten.uniq
+          register_constraints_with_action_columns(nested.constrained_fields,  active_scaffold_config.list.hide_nested_column ? [] : [:list])
+
+          result = deep_nested(active_scaffold_config.model, constraints, result)
+        else
+          nested.parent_scope.send(nested.association.name)
+        end
       elsif nested? && nested.scope
         nested.parent_scope.send(nested.scope)
       else

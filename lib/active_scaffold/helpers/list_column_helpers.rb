@@ -156,12 +156,47 @@ module ActiveScaffold
       ##
       ## Formatting
       ##
+      def deep_nested(my_model, parents={}, result)
+        return result if parents.empty?
+
+        (my_parent_target, my_parent_id) = parents.shift
+        my_parent_scaffold = "#{my_parent_target.to_s.camelize}Controller".constantize
+        my_parent_model = my_parent_scaffold.active_scaffold_config.model
+        my_association = my_model.reflect_on_association(my_parent_target.to_sym) || my_model.reflect_on_association(my_parent_target.singularize.to_sym)
+
+        unless my_association.nil?  
+          my_assoc_id = my_parent_id
+
+          if my_association.macro == :belongs_to
+            my_assoc_key = my_association.primary_key_name
+            result = result.where(my_assoc_key => my_assoc_id)
+          else
+            my_assoc_model = my_association.options[:through]
+            my_assoc_key = my_association.source_reflection.primary_key_name
+            result = result.joins(my_assoc_model).where(my_assoc_model => {my_assoc_key => my_assoc_id })
+          end
+        end
+        
+        result = deep_nested(my_model, parents, result)
+      end
+
       def format_column_value(record, column, value = nil)
-        value ||= record.send(column.name) unless record.nil?
+        unless record.nil?
+          value ||= record.send(column.name)
+          if !column.association.nil? and column.plural_association?
+            value = value.group("\"#{column.name}\".id") if column.associated_number?
+            if !params[:eid].nil?
+              constraints = Hash[*(params[:eid].split(/_(\d+)_/)[0...-1])]
+              value = deep_nested(column.association.klass, constraints, value)
+            end
+          end
+        end
+
         ##### LGV FIXED: record.send does do authz
         if column.link
           if value.nil? || (value.respond_to?(:empty?) && value.empty?)
             # nothing to do
+            value = nil
           elsif [:has_many, :has_and_belongs_to_many].include? column.association.macro
             value.reject! { |val| !val.authorized_for?(:crud_type => :read)}
           else
@@ -246,7 +281,9 @@ module ActiveScaffold
           if column.associated_limit.nil?
             Rails.logger.warn "ActiveScaffold: Enable eager loading for #{column.name} association to reduce SQL queries"
           else
+            logger.info 'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL'
             value.target = value.find(:all, :limit => column.associated_limit + 1, :select => column.select_columns)
+            logger.info 'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL'
           end
         end
       end
