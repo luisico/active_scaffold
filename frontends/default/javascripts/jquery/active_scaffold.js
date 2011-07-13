@@ -754,7 +754,7 @@ var ActiveScaffold = {
 
       if (render_url) {
         var plural = false;
-        if (column_heading.attr('data-ie_plural')) plural = true;
+        if (column_heading.attr('data-ie_plural')) plural = column_heading.attr('data-ie_plural');
         options.field_type = 'remote';
         options.editor_url = render_url.replace(/__id__/, record_id)
       }

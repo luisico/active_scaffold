@@ -197,7 +197,7 @@ document.observe("dom:loaded", function() {
       
       if (render_url) {
         var plural = false;
-        if (column_heading.readAttribute('data-ie_plural')) plural = true;
+        if (column_heading.readAttribute('data-ie_plural')) plural = column_heading.readAttribute('data-ie_plural');
         options['onFormCustomization'] = new Function('element', 'form', 'element.setFieldFromAjax(' + "'" + render_url.sub('__id__', record_id) + "', {plural: " + plural + '});');
       }
       
